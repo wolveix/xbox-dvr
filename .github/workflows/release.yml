@@ -7,6 +7,8 @@ jobs:
   build:
     name: Build and Release Binaries
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -32,6 +34,9 @@ jobs:
   docker:
     name: Build and Release Docker Image
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4

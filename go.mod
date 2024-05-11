@@ -6,7 +6,7 @@ require (
 	github.com/rs/zerolog v1.32.0
 	github.com/spf13/cast v1.6.0
 	github.com/spf13/cobra v1.8.0
-	github.com/wolveix/openxbl-go v0.1.0
+	github.com/wolveix/openxbl-go v0.1.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
