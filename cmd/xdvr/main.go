@@ -19,7 +19,7 @@ var (
 	cmd = &cobra.Command{
 		Use:     "xdvr",
 		Short:   "Download clips and screenshots from your Xbox account.",
-		Version: "0.1.0",
+		Version: "0.1.1",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// setup deps
 			var logWriter io.Writer

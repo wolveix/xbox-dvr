@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/wolveix/openxbl-go"
@@ -16,14 +16,6 @@ func init() {
 	cmd.AddCommand(cmdSync)
 	cmdSync.AddCommand(cmdSyncClips)
 	cmdSync.AddCommand(cmdSyncScreenshots)
-}
-
-type dvrContent struct {
-	Created   time.Time
-	GameTitle string
-	ID        string
-	Type      string
-	URL       string
 }
 
 var (
@@ -53,30 +45,25 @@ var (
 			for {
 				log.Info().Msgf("Finding DVR clips")
 
-				clips, newContinuationToken, err := client.GetDVRGameClips(continuationToken)
+				clips, newContinuationToken, err := client.GetDVRClips(continuationToken)
 				if err != nil {
-					if err.Error() == "failed to find game clips" {
-						log.Info().Msgf("No new game clips to download")
+					if err.Error() == "failed to find clips" {
+						log.Info().Msgf("No new clips to download")
 						return
 					}
-					log.Fatal().Err(err).Msg("Failed to retrieve game clips")
+					log.Fatal().Err(err).Msg("Failed to retrieve clips")
 				}
 
 				continuationToken = newContinuationToken
 
 				for _, clip := range clips {
-					for _, contentLocator := range clip.ContentLocators {
-						if contentLocator.LocatorType == "Download" {
-							if err := processDVR(client, httpClient, dvrContent{
-								Created:   clip.UploadDate,
-								GameTitle: clip.TitleName,
-								ID:        clip.ContentID,
-								Type:      "clips",
-								URL:       contentLocator.Uri,
-							}); err != nil {
-								log.Error().Err(err).Msgf("Failed to process clip: %s", contentLocator.Uri)
-							}
-						}
+					downloadLink := clip.GetDownloadLink()
+					if downloadLink == "" {
+						continue
+					}
+
+					if err := processDVR(client, httpClient, clip.DVRCapture); err != nil {
+						log.Error().Err(err).Msgf("Failed to process clip: %s", downloadLink)
 					}
 				}
 
@@ -109,28 +96,23 @@ var (
 
 				screenshots, newContinuationToken, err := client.GetDVRScreenshots(continuationToken)
 				if err != nil {
-					if err.Error() == "failed to find game screenshots" {
-						log.Info().Msgf("No new game screenshots to download")
+					if err.Error() == "failed to find screenshots" {
+						log.Info().Msgf("No new screenshots to download")
 						return
 					}
-					log.Fatal().Err(err).Msg("Failed to retrieve game screenshots")
+					log.Fatal().Err(err).Msg("Failed to retrieve screenshots")
 				}
 
 				continuationToken = newContinuationToken
 
 				for _, screenshot := range screenshots {
-					for _, contentLocator := range screenshot.ContentLocators {
-						if contentLocator.LocatorType == "Download" {
-							if err := processDVR(client, httpClient, dvrContent{
-								Created:   screenshot.DateUploaded,
-								GameTitle: screenshot.TitleName,
-								ID:        screenshot.ContentID,
-								Type:      "screenshots",
-								URL:       contentLocator.Uri,
-							}); err != nil {
-								log.Error().Err(err).Msgf("Failed to process screenshot: %s", contentLocator.Uri)
-							}
-						}
+					downloadLink := screenshot.GetDownloadLink()
+					if downloadLink == "" {
+						continue
+					}
+
+					if err := processDVR(client, httpClient, screenshot.DVRCapture); err != nil {
+						log.Error().Err(err).Msgf("Failed to process screenshot: %s", downloadLink)
 					}
 				}
 
@@ -142,11 +124,16 @@ var (
 	}
 )
 
-func processDVR(client *openxbl.Client, httpClient *http.Client, content dvrContent) error {
-	gamePath := filepath.Clean(cfg.SavePath + slash + content.Type + slash + content.GameTitle)
-	contentPath := filepath.Clean(gamePath + slash + content.GameTitle + " - " + content.Created.Format("2006-01-02 15_04_05"))
+func processDVR(client *openxbl.Client, httpClient *http.Client, capture openxbl.DVRCapture) error {
+	downloadURL := capture.GetDownloadLink()
+	if downloadURL == "" {
+		return nil
+	}
 
-	if content.Type == "clips" {
+	gamePath := filepath.Clean(cfg.SavePath + slash + strings.ToLower(string(capture.Type)) + "s" + slash + capture.TitleName)
+	contentPath := filepath.Clean(gamePath + slash + capture.TitleName + " - " + capture.UploadDate.Format("2006-01-02 15_04_05"))
+
+	if capture.Type == openxbl.DVRCaptureTypeClip {
 		contentPath += ".mp4"
 	} else {
 		contentPath += ".png"
@@ -154,7 +141,7 @@ func processDVR(client *openxbl.Client, httpClient *http.Client, content dvrCont
 
 	// create dir for title
 	if err := os.MkdirAll(gamePath, os.ModePerm); err != nil {
-		log.Fatal().Err(err).Msgf("Failed to create save directory for game: %s", content.GameTitle)
+		log.Fatal().Err(err).Msgf("Failed to create save directory for game: %s", capture.TitleName)
 	}
 
 	if _, err := os.Stat(contentPath); err == nil {
@@ -165,14 +152,14 @@ func processDVR(client *openxbl.Client, httpClient *http.Client, content dvrCont
 	log.Info().Msgf("Downloading %s", contentPath)
 
 	// download file
-	response, err := httpClient.Get(content.URL)
+	response, err := httpClient.Get(downloadURL)
 	if err != nil {
-		return fmt.Errorf("failed to download file: %s", content.URL)
+		return fmt.Errorf("failed to download file: %s", downloadURL)
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != 200 {
-		return fmt.Errorf("failed to download file: %s", content.URL)
+		return fmt.Errorf("failed to download file: %s", downloadURL)
 	}
 
 	// read response body
@@ -186,11 +173,11 @@ func processDVR(client *openxbl.Client, httpClient *http.Client, content dvrCont
 		return fmt.Errorf("failed to write file to disk: %w", err)
 	}
 
-	if cfg.AutoDelete && content.Type == "clips" {
+	if cfg.AutoDelete && capture.Type == "clips" {
 		log.Info().Msg("Deleting clip from XBL")
 
-		if err = client.DeleteDVRGameClip(content.ID); err != nil {
-			log.Fatal().Err(err).Msgf("Failed to delete clip: %s", content.URL)
+		if err = client.DeleteDVRClip(capture.ID); err != nil {
+			log.Fatal().Err(err).Msgf("Failed to delete clip: %s", downloadURL)
 		}
 	}
 
