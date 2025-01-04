@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// support OS-specific path separators.
+// Support OS-specific path separators.
 const slash = string(os.PathSeparator)
 
 var (
@@ -21,7 +21,6 @@ var (
 		Short:   "Download clips and screenshots from your Xbox account.",
 		Version: "0.1.1",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			// setup deps
 			var logWriter io.Writer
 
 			if prettyLog {

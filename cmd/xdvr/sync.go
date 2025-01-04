@@ -139,7 +139,7 @@ func processDVR(client *openxbl.Client, httpClient *http.Client, capture openxbl
 		contentPath += ".png"
 	}
 
-	// create dir for title
+	// Create dir for title.
 	if err := os.MkdirAll(gamePath, os.ModePerm); err != nil {
 		log.Fatal().Err(err).Msgf("Failed to create save directory for game: %s", capture.TitleName)
 	}
@@ -151,7 +151,7 @@ func processDVR(client *openxbl.Client, httpClient *http.Client, capture openxbl
 
 	log.Info().Msgf("Downloading %s", contentPath)
 
-	// download file
+	// Download file.
 	response, err := httpClient.Get(downloadURL)
 	if err != nil {
 		return fmt.Errorf("failed to download file: %s", downloadURL)
@@ -162,13 +162,13 @@ func processDVR(client *openxbl.Client, httpClient *http.Client, capture openxbl
 		return fmt.Errorf("failed to download file: %s", downloadURL)
 	}
 
-	// read response body
+	// Read response body.
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	// write response body to disk
+	// Write response body to disk.
 	if err = os.WriteFile(contentPath, body, 0o644); err != nil {
 		return fmt.Errorf("failed to write file to disk: %w", err)
 	}

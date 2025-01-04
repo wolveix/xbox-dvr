@@ -54,7 +54,7 @@ var (
 			case "autoDelete", "autodelete":
 				cfg.AutoDelete = cast.ToBool(args[1])
 			case "savePath", "savepath":
-				// check that the path exists
+				// Check that the path exists.
 				absolutePath, err := filepath.Abs(args[1])
 				if err != nil {
 					log.Fatal().Err(err).Msg("Failed to find absolute path")
@@ -133,7 +133,7 @@ func NewConfig(directory string) (*Config, error) {
 }
 
 func (c *Config) Load() error {
-	// create config if it doesn't exist
+	// Create config if it doesn't exist.
 	if _, err := os.Stat(c.path); os.IsNotExist(err) {
 		if err = os.MkdirAll(c.dir, os.ModePerm); err != nil {
 			log.Fatal().Err(err).Msg("Failed to create config directory")
@@ -144,7 +144,7 @@ func (c *Config) Load() error {
 		}
 	}
 
-	// read config
+	// Read config.
 	configData, err := os.ReadFile(c.path)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Unable to read config file")
@@ -154,7 +154,7 @@ func (c *Config) Load() error {
 		log.Fatal().Err(err).Msg("Unable to unmarshal config values")
 	}
 
-	// check environment vars
+	// Check environment vars.
 	if val, ok := os.LookupEnv("apiKey"); ok {
 		c.APIKey = val
 	}
